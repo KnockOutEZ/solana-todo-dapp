@@ -9,54 +9,6 @@ import { findProgramAddressSync } from '@project-serum/anchor/dist/cjs/utils/pub
 import { useAnchorWallet, useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { authorFilter } from '../utils'
 
-// Static data that reflects the todo struct of the solana program
-let dummyTodos = [
-    {
-        account:{
-            idx: '0',
-            content: 'Finish the essay collaboration',
-            marked: false,
-        }
-
-    },
-    {
-        account:{
-            idx: '1',
-            content: 'Understand Static Todo App',
-            marked: false,          
-        }
-
-    },
-    {
-        account:{
-            idx: '2',
-            content: 'Read next chapter of the book in Danish',
-            marked: false,   
-        }
-    },
-    {
-        account:{
-            idx: '3',
-            content: 'Do the math for next monday',
-            marked: false,   
-        }
-    },
-    {
-        account:{
-            idx: '4',
-            content: 'Send the finished assignment',
-            marked: true,  
-        }
-    },
-    {
-        account:{
-            idx: '5',
-            content: 'Read english book chapter 5',
-            marked: true,          
-        }
-    },
-]
-
 
 export function useTodo() {
     const { connection } = useConnection()
@@ -79,13 +31,41 @@ export function useTodo() {
     }, [connection, anchorWallet])
 
     useEffect(() => {
+        const findProfileAccounts = async () => {
+            if (program && publicKey && !transactionPending) {
+                try{
+                    setLoading(true)
+                    const [profilePda,profileBump] = await findProgramAddressSync(
+                        [utf8.encode('USER_STATE'), publicKey.toBuffer()],
+                        program.programId
+                    )
 
-        if(initialized) {
-            setTodos(dummyTodos)
+                    const profileAccount = await program.account.userProfile.fetch(profilePda)
+
+                    if(profileAccount){
+                        setLastTodo(profileAccount.lastTodo)
+                        setInitialized(true)
+
+                        const todoAccounts = await program.account.todoAccounts.all(authorFilter(publicKey.toString()))
+                        setTodos(todoAccounts)
+                    }else{
+                        console.log("Not yet initialized")
+                        setInitialized(false)
+                    }
+                }catch(err){
+                    console.log(err)
+                    setInitialized(false)
+                    setTodos([])
+                } finally {
+                    setLoading(false)
+                }
+            }
         }
 
+        findProfileAccounts()
 
-    }, [initialized])
+
+    }, [publicKey, program, transactionPending])
 
     const handleChange = (e)=> {
         setInput(e.target.value)
